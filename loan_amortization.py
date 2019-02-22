@@ -1,44 +1,62 @@
-# Imports
-import pandas as pd
-from datetime import date
-import numpy as np
-from collections import OrderedDict
-from dateutil.relativedelta import *
+# Import globals
+from globals import *
+
+class Loan:
+
+    l_principal = 0
+    l_interest_rate = 0
+    l_term = 0
+    l_addl_principal = 0
+    l_annual_payments = 0
+    l_start_date = None
+    l_forecasted_end_date = None
+    l_payments = None
+
+    def __init__(self, principal, interest_rate, term=30, addl_principal=0,annual_payments=12, start_date=date.today()):
+        self.l_principal = principal
+        self.l_interest_rate = interest_rate
+        self.l_term = term
+        self.l_addl_principal = addl_principal
+        self.l_annual_payments = annual_payments
+        self.l_start_date = start_date
+        self.l_payments = pd.DataFrame(self.amortize(principal, interest_rate, years=term, addl_principal=addl_principal
+                                                     , annual_payments=annual_payments, start_date=start_date))
+        self.l_forecasted_end_date = self.l_payments.sort_values(by='Month', ascending=False).iloc[0]['Month']
 
 
-def amortize(principal, interest_rate, years, addl_principal=0, annual_payments=12, start_date=date.today()):
-    # func to calculate the payments
-    pmt = -round(np.pmt(interest_rate / annual_payments, years * annual_payments, principal), 2)
-    # initialize the variables to keep track of the periods and running balances
-    p = 1
-    beg_balance = principal
-    end_balance = principal
+    def amortize(self, principal, interest_rate, years, addl_principal=0, annual_payments=12, start_date=date.today()):
+        # func to calculate the payments
+        pmt = -round(np.pmt(interest_rate / annual_payments, years * annual_payments, principal), 2)
+        # initialize the variables to keep track of the periods and running balances
+        p = 1
+        beg_balance = principal
+        end_balance = principal
 
-    while end_balance > 0:
-        # Recalculate the interest based on the current balance
-        interest = round(((interest_rate / annual_payments) * beg_balance), 2)
+        while end_balance > 0:
+            # Recalculate the interest based on the current balance
+            interest = round(((interest_rate / annual_payments) * beg_balance), 2)
 
-        # Determine payment based on whether or not this period will pay off the loan
-        pmt = min(pmt, beg_balance + interest)
-        principal = pmt - interest
+            # Determine payment based on whether or not this period will pay off the loan
+            pmt = min(pmt, beg_balance + interest)
+            principal = pmt - interest
 
-        # Ensure additional payment gets adjusted if the loan is being paid off
-        addl_principal = min(addl_principal, beg_balance - principal)
-        end_balance = beg_balance - (principal + addl_principal)
+            # Ensure additional payment gets adjusted if the loan is being paid off
+            addl_principal = min(addl_principal, beg_balance - principal)
+            end_balance = beg_balance - (principal + addl_principal)
 
-        yield OrderedDict([('Month', start_date),
-                           ('Period', p),
-                           ('Begin Balance', beg_balance),
-                           ('Payment', pmt),
-                           ('Principal', principal),
-                           ('Interest', interest),
-                           ('Additional_Payment', addl_principal),
-                           ('End Balance', end_balance)])
+            yield OrderedDict([('Month', start_date),
+                               ('Period', p),
+                               ('Begin Balance', beg_balance),
+                               ('Payment', pmt),
+                               ('Principal', principal),
+                               ('Interest', interest),
+                               ('Additional_Payment', addl_principal),
+                               ('End Balance', end_balance)])
 
-        # Increment the counter, balance and date
-        p += 1
-        start_date += relativedelta(months=1)
-        beg_balance = end_balance
+            # Increment the counter, balance and date
+            p += 1
+            start_date += relativedelta(months=1)
+            beg_balance = end_balance
 
 
 # interest_rate: current interest rate
@@ -83,7 +101,8 @@ def add_years(d, years):
         return d + (date(d.year + years, 1, 1) - date(d.year, 1, 1))
 
 
+loan = Loan(principal=400000,interest_rate=.043,term=30,addl_principal=0,start_date=date(2019,5,20))
 print(calculate_interest_changes(date(2019, 3, 23), '5/3', 30))
-schedule = pd.DataFrame(amortize(400000, .043, 30, addl_principal=0, start_date=date(2019, 5, 20)))
+schedule = loan.l_payments
 print(schedule['Interest'].sum())
-print(schedule.head())
+print(loan.l_forecasted_end_date)
